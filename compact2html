@@ -126,9 +126,6 @@ for node in comments:  # visit every node <bar />
      #allcomments.append(cleanhtml(sxml))
      html.rows.append(["Comment",cleanhtml(sxml)]);
 
-#print allcomments;
-
-
 
 html_fields=HTML.Table(header_row=['Name', 'Value'])
 fields = xmldoc.getElementsByTagName("field")
@@ -138,9 +135,6 @@ for node in fields:  # visit every node <bar />
     fillAttrinute(node,html_fields,'inner_radius')
     fillAttrinute(node,html_fields,'outer_radius')
     fillAttrinute(node,html_fields,'zmax')
-
-
-
 
 
 if (DEBUG): print "Deal with constants"
