@@ -19,6 +19,10 @@ import HTML
 import getopt
 import os,sys,re
 
+# only for debugging
+DEBUG=False
+
+
 def usage():
     print "USAGE:"  
     print "compact2html -i DETECTOR       # create HTML from the directory [DETECTOR]"
@@ -50,8 +54,13 @@ if not os.path.isfile(compact1):
    compact=compact2
 
 
-print "Reading: "+compact       
-output=detector+"/"+detector+".xml"
+
+xfiles=detector.split("/")
+if len(xfiles)>0:
+         det_name=xfiles[len(xfiles)-1]
+
+print "Reading:  "+compact       
+output=detector+"/"+det_name+".xml"
 print "Creating: "+output
 
 
