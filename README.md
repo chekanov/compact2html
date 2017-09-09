@@ -3,9 +3,9 @@
  
 Usage: 
 
-'''bash
+```
 compact2html -i [DIR]
-'''
+```
 
 This converter works with compact XML files designed for DD4HEP.
 
