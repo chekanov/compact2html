@@ -137,6 +137,7 @@ for node in fields:  # visit every node <bar />
     fillAttrinute(node,html_fields,'outer_field')
     fillAttrinute(node,html_fields,'inner_radius')
     fillAttrinute(node,html_fields,'outer_radius')
+    fillAttrinute(node,html_fields,'zmax')
 
 
 
@@ -317,7 +318,7 @@ for m  in range(len(mat)):
     jj=jj+1
 
  
-footter="<p><i>compact2html</i> converter. Version 1.0. Designed for HepSim. author: S.Chekanov (ANL)</p>" 
+footter="<p><i>compact2html</i> converter. Version 1.0. Designed for HepSim. Author: S.Chekanov (ANL)</p>" 
 ending=footter+'\n</BODY></HTML>'
 html=header+html+"<H2>Fields</H2>"+str(html_fields)+smenu+str(html_det)+"<hr> \n<H2 id='constants'>Constants</H2>\n"+str(html_constants)+"\n<H2 id='material'>Materials</H2>\n"+str(html_materials)+ending 
 fout=open(output,"w")
