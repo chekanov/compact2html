@@ -1,0 +1,289 @@
+#!/bin/bash
+# This code is licensed under the GNU General Public License (GPL) version 3 
+# see doc/ for details 
+# Copyright (c) 2017 by S.Chekanov (chekanov@anl.gov). 
+# All rights reserved.
+
+
+
+"exec" "python2" "-Wignore" "$0" "$@"
+
+
+__version__ = 'compact2html 1.0'
+__author__  = 'Sergei Chekanov  (chekanov@anl.gov)'
+__doc__     = 'Converter for compact.xml files to HTML using DD4HEP layouts'
+
+from xml.dom import minidom
+from xml.dom.minidom import parse, parseString
+import HTML
+import getopt
+import os,sys,re
+
+def usage():
+    print "USAGE:"  
+    print "compact2html -i DETECTOR       # create HTML from the directory [DETECTOR]"
+
+
+detector="CLIC_o3_v13"
+if len(sys.argv)==3:
+       if sys.argv[1] == "-i":
+         detector=sys.argv[2]
+else:
+       print 'Option input is given'
+       usage()
+       sys.exit(2)
+
+if not os.path.exists(detector):
+    print "The given detector geometry \'" + detector + "\' does not exist. Exit"
+    sys.exit(2)
+
+
+compact1=detector+"/compact.xml"
+if not os.path.isfile(compact1):
+     compact2=detector+"/"+detector+".xml"
+     if not os.path.isfile(compact2):
+           print "Cannot find "+compact1+" or "+compact2+" Exit!" 
+           sys.exit(2)
+
+compact=compact1
+if not os.path.isfile(compact1):
+   compact=compact2
+
+
+print "Reading: "+compact       
+output=detector+"/"+detector+".xml"
+print "Creating: "+output
+
+
+def cleanhtml(raw_html):
+  cleanr = re.compile('<.*?>')
+  cleantext = re.sub(cleanr, '', raw_html)
+  return cleantext
+
+xmldoc = minidom.parse( compact )
+itemlist = xmldoc.getElementsByTagName('info')
+name=itemlist[0].attributes['name'].value
+title=itemlist[0].attributes['title'].value
+author=itemlist[0].attributes['author'].value
+version=itemlist[0].attributes['version'].value
+
+header='<HTML><HEAD>'
+header=header+'<TITLE>'+detector+'</TITLE></HEAD>\n <BODY>'
+
+
+html = HTML.Table(header_row=['', ''])
+
+print "Name=" , name
+print "Title=" , title
+print "Author=" , author
+print "Version=" , version
+#print "Comment=" , comment
+html.rows.append(["Name",name]);
+html.rows.append(["Title",title]);
+html.rows.append(["Author",author]);
+html.rows.append(["Version",version]);
+
+#allcomments=[]
+comments = xmldoc.getElementsByTagName("comment")
+for node in comments:  # visit every node <bar />
+     sxml=str(node.toxml())
+     #allcomments.append(cleanhtml(sxml))
+     html.rows.append(["Comment",cleanhtml(sxml)]);
+
+#print allcomments;
+
+if (DEBUG): print "Deal with constants"
+constants = xmldoc.getElementsByTagName("constant")
+print "Nr of defined constants=",len(constants)
+
+const={}
+for node in constants:  # visit every node <bar />
+     name=node.attributes['name'].value
+     value=node.attributes['value'].value
+     #print name,value 
+     const[name]=value
+     #sxml=str(node.toxml())
+     #print sxml
+
+# sort keys
+sorted_const={}
+for key in sorted(const):
+    sorted_const[key]=const[key]
+
+
+if (DEBUG): print "Deal with material"
+xmlmaterial = minidom.parse( detector+"/materials.xml" )
+materials = xmlmaterial.getElementsByTagName("material")
+densities = xmlmaterial.getElementsByTagName("D")
+print "Nr of defined materials=",len(materials)
+mat=[]
+for node in materials:  # visit every node <bar />
+     name=node.attributes['name'].value
+     #print name,value 
+     mat.append(name)
+
+den=[]
+for node in densities:  # visit every node <bar />
+     value=node.attributes['value'].value
+     den.append(value) 
+
+if (len(den) != len(mat)):
+            print "Error in material file! Exit"
+            sys.exit(0);
+
+ 
+
+include_files=[]
+includes = xmldoc.getElementsByTagName("include")
+print "Includes=",len(includes)
+for node in includes:  # visit every node <bar />
+     name=str(node.attributes['ref'].value) 
+     if (name.find("$")<0):
+         include_files.append(name)
+include_files.sort()
+
+
+
+# build menu for subcomponents
+names=[]
+for f in include_files:
+        xmldoc_include = minidom.parse( detector+"/"+f )
+        subdet = xmldoc_include.getElementsByTagName("detector")
+        for node in subdet:  # visit every node <bar />
+                 name=node.attributes['name'].value
+                 names.append(str(name))
+
+
+names.sort()
+
+smenu="<H2>Constants and Material</H2><ul>"
+htmlcode = HTML.link("Constants", '#constants')
+smenu=smenu+"<li>"+str(htmlcode)+"</li>\n"
+htmlcode = HTML.link("Material", '#material')
+smenu=smenu+"<li>"+str(htmlcode)+"</li>\n"
+smenu=smenu+"</ul>"
+
+smenu=smenu+"\n<H2>All components</H2> <ul>"
+for j in names:
+     htmlcode = HTML.link(j, '#'+j)
+     smenu=smenu+"<li>"+str(htmlcode)+"</li>\n" 
+
+htmlcode = HTML.link("Constants", '#constants')
+smenu=smenu+"<li>"+str(htmlcode)+"</li>\n"
+smenu=smenu+"</ul>"
+
+
+# fill attribute as a row of table
+def fillAttrinute(d,html,name):
+        try:
+            xxx=d.attributes[name].value
+            if (xxx.find("*")>0):
+                   shtml = str(xxx)
+            else:
+                   shtml = HTML.link(xxx, '#'+name)
+            html.rows.append([name,str(shtml)]);
+        except KeyError: 
+                    return html; 
+        return html;
+
+
+# make real tables
+html=str(html)
+
+html_det=""
+for f in include_files:
+        xmldoc_include = minidom.parse( detector+"/"+f )
+        subdet = xmldoc_include.getElementsByTagName("detector")
+        dimen = xmldoc_include.getElementsByTagName("dimensions")
+        layers = xmldoc_include.getElementsByTagName("layer")
+        slices = xmldoc_include.getElementsByTagName("slice")
+
+        html1 = HTML.Table(header_row=['', ''])
+        for node in subdet:  # visit every node <bar />
+                 name=node.attributes['name'].value
+                 #html=html+"<H2>"+str(name)+"</H2>\n"; 
+                 html1.rows.append(["Name",str(name)]);
+                 sid=""
+                 try:
+                   sid=node.attributes['id'].value
+                   html1.rows.append(["ID",str(sid)]);
+                 except KeyError: pass
+
+                 sreadout=""
+                 try: 
+                   sreadout=node.attributes['readout'].value
+                   html1.rows.append(["Redout",str(sreadout)]);
+                 except KeyError: pass 
+                 stype=""
+                 try:
+                   stype=node.attributes['type'].value
+                   html1.rows.append(["Type",str(stype)]);
+                 except KeyError: pass
+                 #print sreadout,sid,stype
+                 #sid=node.attributes['id'].value
+                 #stype=node.attributes['type'].value
+                 #print stype
+
+        for d in dimen:  # visit every node <bar />
+                 fillAttrinute(d,html1,'inner_r')
+                 fillAttrinute(d,html1,'outer_r')
+                 fillAttrinute(d,html1,'inner_z')
+                 fillAttrinute(d,html1,'outer_z')
+          
+
+        html2 = HTML.Table(header_row=['Nr of slices'])
+        for layer in layers:  # visit every node <bar />
+                 r="1"
+                 try:
+                   r=layer.attributes['repeat'].value
+                   html2.rows.append([str(r)]);
+                 except KeyError: pass
+
+        html3 = HTML.Table(header_row=['Nr', 'Material', 'Thickness', "Sensitive"])
+
+        jj=0
+        for s in slices:  # visit every node <bar />
+                sl=""
+                try:
+                   jj=jj+1;
+                   sl=s.attributes['material'].value
+                except KeyError: pass
+                t1=""
+                try:
+                   t1=s.attributes['thickness'].value
+                except KeyError: pass
+                t2=""
+                try:
+                   t2=s.attributes['sensitive'].value
+                except KeyError: pass
+                html3.rows.append([str(jj),str(sl),str(t1),str(t2)]);
+
+
+
+        html_det= html_det+"\n\n <H2 id='" + name +"'>"+name+"</H2>\n"+str(html1)+str(html2)+ "<p style='margin-left:1em; margin-top:0em;'>"+ str(html3)+"</p>"+"\n"
+
+
+jj=0
+html_constants=HTML.Table(header_row=['Nr', 'Name', 'Value']) 
+for key in sorted_const:
+    jj=jj+1
+    skey=str(key)
+    shtml = "<H4 id='" + skey +"'>"+skey+"</H4>" 
+    html_constants.rows.append([str(jj),shtml,str(sorted_const[key])]);
+  
+jj=0 
+html_materials=HTML.Table(header_row=['Nr', 'Name', 'Density [g/cm3]'])
+for m  in range(len(mat)):
+    html_materials.rows.append([str(jj+1),str(mat[jj]),str(den[jj])]);
+    jj=jj+1
+
+ 
+footter="<p><i>compact2html</i> converter. Version 1.0. Designed for HepSim. author: S.Chekanov (ANL)</p>" 
+ending=footter+'\n</BODY></HTML>'
+html=header+html+smenu+str(html_det)+"<hr> \n<H2 id='constants'>Constants</H2>\n"+str(html_constants)+"\n<H2 id='material'>Materials</H2>\n"+str(html_materials)+ending 
+fout=open(output,"w")
+fout.write(str(html))
+fout.close()
+print "File "+output+" is ready"
+sys.exit(0);
+ 
