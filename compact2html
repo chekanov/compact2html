@@ -28,6 +28,21 @@ def usage():
     print "compact2html -i DETECTOR       # create HTML from the directory [DETECTOR]"
 
 
+# fill attribute as a row of table
+def fillAttrinute(d,html,name):
+        try:
+            xxx=d.attributes[name].value
+            if (xxx.find("*")>0):
+                   shtml = str(xxx)
+            else:
+                   shtml = HTML.link(xxx, '#'+name)
+            html.rows.append([name,str(shtml)]);
+        except KeyError:
+                    return html;
+        return html;
+
+
+
 detector="CLIC_o3_v13"
 if len(sys.argv)==3:
        if sys.argv[1] == "-i":
@@ -60,7 +75,7 @@ if len(xfiles)>0:
          det_name=xfiles[len(xfiles)-1]
 
 print "Reading:  "+compact       
-output=detector+"/"+det_name+".xml"
+output=detector+"/"+det_name+".html"
 print "Creating: "+output
 
 
@@ -77,8 +92,20 @@ author=itemlist[0].attributes['author'].value
 version=itemlist[0].attributes['version'].value
 
 header='<HTML><HEAD>'
-header=header+'<TITLE>'+detector+'</TITLE></HEAD>\n <BODY>'
 
+style = """ 
+<style>
+body {background-color: #FAFAFA; font: 16px arial, sans-serif;}
+h1   {color: #800080;}
+h2   {color: #4000FF;}
+p    {color: darkgray;}
+</style>
+"""
+
+
+header=header+"<TITLE>Summary of "+detector+"</TITLE>\n"+style+"</HEAD>\n <BODY>" 
+
+header=header+"<H1>Summary of "+detector+" detector </H1>\n"
 
 html = HTML.Table(header_row=['', ''])
 
@@ -100,6 +127,20 @@ for node in comments:  # visit every node <bar />
      html.rows.append(["Comment",cleanhtml(sxml)]);
 
 #print allcomments;
+
+
+
+html_fields=HTML.Table(header_row=['Name', 'Value'])
+fields = xmldoc.getElementsByTagName("field")
+for node in fields:  # visit every node <bar />
+    fillAttrinute(node,html_fields,'inner_field')
+    fillAttrinute(node,html_fields,'outer_field')
+    fillAttrinute(node,html_fields,'inner_radius')
+    fillAttrinute(node,html_fields,'outer_radius')
+
+
+
+
 
 if (DEBUG): print "Deal with constants"
 constants = xmldoc.getElementsByTagName("constant")
@@ -154,16 +195,17 @@ include_files.sort()
 
 
 # build menu for subcomponents
-names=[]
+detes=[]
 for f in include_files:
         xmldoc_include = minidom.parse( detector+"/"+f )
         subdet = xmldoc_include.getElementsByTagName("detector")
         for node in subdet:  # visit every node <bar />
                  name=node.attributes['name'].value
-                 names.append(str(name))
+                 dd=[str(name),f]
+                 detes.append(dd)
 
+detes=sorted(detes,key=lambda x: (x[0]))
 
-names.sort()
 
 smenu="<H2>Constants and Material</H2><ul>"
 htmlcode = HTML.link("Constants", '#constants')
@@ -172,28 +214,16 @@ htmlcode = HTML.link("Material", '#material')
 smenu=smenu+"<li>"+str(htmlcode)+"</li>\n"
 smenu=smenu+"</ul>"
 
-smenu=smenu+"\n<H2>All components</H2> <ul>"
-for j in names:
-     htmlcode = HTML.link(j, '#'+j)
-     smenu=smenu+"<li>"+str(htmlcode)+"</li>\n" 
+smenu=smenu+"\n<H2>All detector components</H2> <ul>"
+for j in detes:
+     name=j[0]
+     file=j[1]
+     htmlcode = HTML.link(name, '#'+name)
+     xfile=HTML.link("[xml]", file)
+     smenu=smenu+"<li>"+str(htmlcode)+" -> "+xfile+"</li>\n" 
 
-htmlcode = HTML.link("Constants", '#constants')
-smenu=smenu+"<li>"+str(htmlcode)+"</li>\n"
 smenu=smenu+"</ul>"
 
-
-# fill attribute as a row of table
-def fillAttrinute(d,html,name):
-        try:
-            xxx=d.attributes[name].value
-            if (xxx.find("*")>0):
-                   shtml = str(xxx)
-            else:
-                   shtml = HTML.link(xxx, '#'+name)
-            html.rows.append([name,str(shtml)]);
-        except KeyError: 
-                    return html; 
-        return html;
 
 
 # make real tables
@@ -269,7 +299,7 @@ for f in include_files:
 
 
 
-        html_det= html_det+"\n\n <H2 id='" + name +"'>"+name+"</H2>\n"+str(html1)+str(html2)+ "<p style='margin-left:1em; margin-top:0em;'>"+ str(html3)+"</p>"+"\n"
+        html_det= html_det+"\n\n <H2 id='" + name +"'>"+name+"</H2>\n"+str(html1)+" "+str(html2)+ "<p></p> <p style='margin-left:1em; margin-top:0em;'>"+ str(html3)+"</p>"+"\n"
 
 
 jj=0
@@ -289,7 +319,7 @@ for m  in range(len(mat)):
  
 footter="<p><i>compact2html</i> converter. Version 1.0. Designed for HepSim. author: S.Chekanov (ANL)</p>" 
 ending=footter+'\n</BODY></HTML>'
-html=header+html+smenu+str(html_det)+"<hr> \n<H2 id='constants'>Constants</H2>\n"+str(html_constants)+"\n<H2 id='material'>Materials</H2>\n"+str(html_materials)+ending 
+html=header+html+"<H2>Fields</H2>"+str(html_fields)+smenu+str(html_det)+"<hr> \n<H2 id='constants'>Constants</H2>\n"+str(html_constants)+"\n<H2 id='material'>Materials</H2>\n"+str(html_materials)+ending 
 fout=open(output,"w")
 fout.write(str(html))
 fout.close()
